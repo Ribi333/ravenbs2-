@@ -60,6 +60,7 @@ public class NoSlow extends Module {
     private boolean didC;
     private boolean jumped, setCancelled;
     public boolean fn;
+    private Reflection ReflectionUtils;
 
     public NoSlow() {
         super("NoSlow", category.movement, 0);
