@@ -50,9 +50,10 @@ public class LongJump extends Module {
     private ButtonSetting renderFloatProgress;
 
     private KeySetting verticalKey;
+    private KeySetting switchToFloat, switchToFlat;
     private SliderSetting pitchVal;
 
-    public String[] modes = new String[]{"Float", "Boost"};
+    public String[] modes = new String[]{"Float", "Boost", "Flat"};
 
     private boolean manualWasOn;
 
@@ -63,7 +64,7 @@ public class LongJump extends Module {
     private boolean enabled, swapped;
     public static boolean function;
 
-    private int boostTicks = -1;
+    private int boostTicks;
     public int lastSlot = -1, spoofSlot = -1;
     private int stopTime;
     private int rotateTick;
@@ -104,11 +105,12 @@ public class LongJump extends Module {
         this.registerSetting(hideExplosion = new ButtonSetting("Hide explosion", false));
         this.registerSetting(spoofItem = new ButtonSetting("Spoof item", false));
         this.registerSetting(silentSwing = new ButtonSetting("Silent swing", false));
-        this.registerSetting(renderFloatProgress = new ButtonSetting("Render progress", false));
+        this.registerSetting(renderFloatProgress = new ButtonSetting("Render float progress", false));
 
         this.registerSetting(beginFlat = new ButtonSetting("Begin flat", false));
         this.registerSetting(verticalKey = new KeySetting("Vertical key", Keyboard.KEY_SPACE));
-        this.registerSetting(flatKey = new KeySetting("Flat key", Keyboard.KEY_SPACE));
+        this.registerSetting(switchToFloat = new KeySetting("Switch to float", Keyboard.KEY_SPACE));
+        this.registerSetting(switchToFlat = new KeySetting("Switch to flat", Keyboard.KEY_SPACE));
     }
 
     public void guiUpdate() {
@@ -117,13 +119,19 @@ public class LongJump extends Module {
         this.spoofItem.setVisible(!manual.isToggled(), this);
         this.silentSwing.setVisible(!manual.isToggled(), this);
 
-        //this.renderFloatProgress.setVisible(mode.getInput() == 0, this);
+        this.renderFloatProgress.setVisible(mode.getInput() == 0, this);
 
         this.verticalMotion.setVisible(mode.getInput() == 0, this);
         this.motionDecay.setVisible(mode.getInput() == 0, this);
         this.beginFlat.setVisible(mode.getInput() == 0, this);
         this.verticalKey.setVisible(mode.getInput() == 0 && beginFlat.isToggled(), this);
-        this.flatKey.setVisible(mode.getInput() == 0 && !beginFlat.isToggled(), this);
+        this.switchToFloat.setVisible(mode.getInput() == 0, this);
+        this.switchToFloat.setVisible(mode.getInput() == 1, this);
+        this.switchToFloat.setVisible(mode.getInput() == 2, this);
+        this.switchToFlat.setVisible(mode.getInput() == 0, this);
+        this.switchToFlat.setVisible(mode.getInput() == 1, this);
+        this.switchToFlat.setVisible(mode.getInput() == 2, this);
+
     }
 
     public void onEnable() {
@@ -162,6 +170,24 @@ public class LongJump extends Module {
 
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
+        if (Utils.tabbedIn()) {
+            if (switchToFloat.isPressed() && mode.getInput() == 1) {
+                mode.setValue(0);
+                Utils.print(Utils.formatColor("&7[&dR&7]&7 Switched to &bFloat&7 LongJump mode"));
+            }
+            if (switchToFloat.isPressed() && mode.getInput() == 2) {
+                mode.setValue(0);
+                Utils.print(Utils.formatColor("&7[&dR&7]&7 Switched to &bFloat&7 LongJump mode"));
+            }
+            if (switchToFlat.isPressed() && mode.getInput() == 0) {
+                mode.setValue(2);
+                Utils.print(Utils.formatColor("&7[&dR&7]&7 Switched to &bFlat&7 LongJump mode"));
+            }
+            if (switchToFlat.isPressed() && mode.getInput() == 1) {
+                mode.setValue(2);
+                Utils.print(Utils.formatColor("&7[&dR&7]&7 Switched to &bFlat&7 LongJump mode"));
+            }
+        }
         if (manual.isToggled()) {
             manualWasOn = true;
         }
@@ -198,7 +224,7 @@ public class LongJump extends Module {
         }
 
         if (enabled) {
-            if (!Utils.isMoving() && mode.getInput() == 0) notMoving = true;
+            if (!Utils.isMoving()) notMoving = true;
             if (boostSetting.getInput() == 0 && verticalMotion.getInput() == 0) {
                 Utils.print("&cValues are set to 0!");
                 disabled();
@@ -228,9 +254,25 @@ public class LongJump extends Module {
         } else {
             motionDecayVal = (int) motionDecay.getInput();
         }
+
         if (stopTime == -1 && ++boostTicks > (!verticalKey() ? 33/*flat motion ticks*/ : (!notMoving ? 32/*normal motion ticks*/ : 33/*vertical motion ticks*/))) {
             disabled();
             return;
+        }
+
+        if (mode.getInput() == 2 && function) {
+            if (boostTicks > 0 && boostTicks < 30) {
+                mc.thePlayer.motionY = 0.01;
+
+                if (mc.thePlayer.hurtTime == 9 && mc.thePlayer.moveForward > 0) {
+                    Utils.setSpeed(1.6);
+                } else if (mc.thePlayer.hurtTime == 8 && mc.thePlayer.moveForward > 0) {
+                    Utils.setSpeed(1.6);
+                }
+            } else if (boostTicks >= 30) {
+                disabled();
+                return;
+            }
         }
 
         if (fireballTime > 0 && (System.currentTimeMillis() - fireballTime) > FIREBALL_TIMEOUT) {
@@ -238,6 +280,7 @@ public class LongJump extends Module {
             disabled();
             return;
         }
+
         if (boostTicks > 0) {
             if (mode.getInput() == 0) {
                 modifyVertical(); // has to be onPreUpdate
@@ -272,7 +315,7 @@ public class LongJump extends Module {
             return;
         }
         if (ev.phase == TickEvent.Phase.END) {
-            if (mc.currentScreen != null || !renderFloatProgress.isToggled() || mode.getInput() != 0 || !function) {
+            if (mc.currentScreen != null || !renderFloatProgress.isToggled() || mode.getInput() != 0) {
                 return;
             }
         }
@@ -343,19 +386,12 @@ public class LongJump extends Module {
         }
     }
 
-    @SubscribeEvent
-    public void onPostPlayerInput(PostPlayerInputEvent e) {
-        if (!function) {
-            return;
-        }
-        mc.thePlayer.movementInput.jump = false;
-    }
-
     @SubscribeEvent(priority = EventPriority.LOWEST) // called last in order to apply fix
     public void onMoveInput(PrePlayerInputEvent e) {
         if (!function) {
             return;
         }
+        mc.thePlayer.movementInput.jump = false;
         if (rotateTick > 0 || fireballTime > 0) {
             if (Utils.isMoving()) e.setForward(1);
             e.setStrafe(0);
@@ -378,7 +414,7 @@ public class LongJump extends Module {
             return;
         }
         Packet packet = e.getPacket();
-        if (packet instanceof S27PacketExplosion && boostTicks == -1) {
+        if (packet instanceof S27PacketExplosion) {
             S27PacketExplosion s27 = (S27PacketExplosion) packet;
             if (fireballTime == 0 || mc.thePlayer.getPosition().distanceSq(s27.getX(), s27.getY(), s27.getZ()) > MAX_EXPLOSION_DIST_SQ) {
                 e.setCanceled(true);
@@ -427,7 +463,6 @@ public class LongJump extends Module {
         boostTicks = -1;
         resetSlot();
         enabled = function = notMoving = stopVelocity = stopModules = swapped = false;
-        filledWidth = 0;
         if (!manual.isToggled()) {
             disable();
         }
@@ -484,29 +519,115 @@ public class LongJump extends Module {
     }
 
     private void modifyVertical() {
+        if (mode.getInput() == 2) {
+            mc.thePlayer.motionY = 0.01;
+            return;
+        }
+
         if (verticalMotion.getInput() != 0) {
             double ver = ((!notMoving ? verticalMotion.getInput() : 1.16 /*vertical*/) * (1.0 / (1.0 + (0.05 * getSpeedLevel())))) + Utils.randomizeDouble(0.0001, 0.1);
             double decay = motionDecay.getInput() / 1000;
-            if (mode.getInput() == 0) {
-                if (boostTicks > 1 && !verticalKey()) {
-                    if (boostTicks > 1 || boostTicks <= (!notMoving ? 32/*horizontal motion ticks*/ : 33/*vertical motion ticks*/)) {
-                        mc.thePlayer.motionY = Utils.randomizeDouble(0.0101, 0.01);
-                    }
-                } else {
-                    if (boostTicks >= 1 && boostTicks <= (!notMoving ? 32/*horizontal motion ticks*/ : 33/*vertical motion ticks*/)) {
-                        mc.thePlayer.motionY = ver - boostTicks * decay;
-                    } else if (boostTicks >= (!notMoving ? 32/*horizontal motion ticks*/ : 33/*vertical motion ticks*/) + 3) {
-                        mc.thePlayer.motionY = mc.thePlayer.motionY + 0.028;
-                        Utils.print("?");
-                    }
+            if (boostTicks > 1 && !verticalKey()) {
+                if (boostTicks > 1 || boostTicks <= (!notMoving ? 32/*horizontal motion ticks*/ : 33/*vertical motion ticks*/)) {
+                    mc.thePlayer.motionY = Utils.randomizeDouble(0.0101, 0.01);
                 }
-
+            } else {
+                if (boostTicks >= 1 && boostTicks <= (!notMoving ? 32/*horizontal motion ticks*/ : 33/*vertical motion ticks*/)) {
+                    mc.thePlayer.motionY = ver - boostTicks * decay;
+                } else if (boostTicks >= (!notMoving ? 32/*horizontal motion ticks*/ : 33/*vertical motion ticks*/) + 3) {
+                    mc.thePlayer.motionY = mc.thePlayer.motionY + 0.028;
+                    Utils.print("?");
+                }
             }
         }
     }
 
     private boolean verticalKey() {
         if (notMoving) return true;
-        return beginFlat.isToggled() ? verticalKey.isPressed() : !flatKey.isPressed();
+        return beginFlat.isToggled() ? verticalKey.isPressed() : true;
+    }
+
+    private int getKeyCode(String keyName) {
+        switch (keyName) {
+            case "0": return 11;
+            case "1": return 2;
+            case "2": return 3;
+            case "3": return 4;
+            case "4": return 5;
+            case "5": return 6;
+            case "6": return 7;
+            case "7": return 8;
+            case "8": return 9;
+            case "9": return 10;
+            case "A": return 30;
+            case "B": return 48;
+            case "C": return 46;
+            case "D": return 32;
+            case "E": return 18;
+            case "F": return 33;
+            case "G": return 34;
+            case "H": return 35;
+            case "I": return 23;
+            case "J": return 36;
+            case "K": return 37;
+            case "L": return 38;
+            case "M": return 50;
+            case "N": return 49;
+            case "O": return 24;
+            case "P": return 25;
+            case "Q": return 16;
+            case "R": return 19;
+            case "S": return 31;
+            case "T": return 20;
+            case "U": return 22;
+            case "V": return 47;
+            case "W": return 17;
+            case "X": return 45;
+            case "Y": return 21;
+            case "Z": return 44;
+            case "BACK": return 14;
+            case "CAPITAL": return 58;
+            case "COMMA": return 51;
+            case "DELETE": return 211;
+            case "DOWN": return 208;
+            case "END": return 207;
+            case "ESCAPE": return 1;
+            case "F1": return 59;
+            case "F2": return 60;
+            case "F3": return 61;
+            case "F4": return 62;
+            case "F5": return 63;
+            case "F6": return 64;
+            case "F7": return 65;
+            case "HOME": return 199;
+            case "INSERT": return 210;
+            case "LBRACKET": return 26;
+            case "LCONTROL": return 29;
+            case "LMENU": return 56;
+            case "LMETA": return 219;
+            case "LSHIFT": return 42;
+            case "MINUS": return 12;
+            case "NUMPAD0": return 82;
+            case "NUMPAD1": return 79;
+            case "NUMPAD2": return 80;
+            case "NUMPAD3": return 81;
+            case "NUMPAD4": return 75;
+            case "NUMPAD5": return 76;
+            case "NUMPAD6": return 77;
+            case "NUMPAD7": return 71;
+            case "NUMPAD8": return 72;
+            case "NUMPAD9": return 73;
+            case "PERIOD": return 52;
+            case "RETURN": return 28;
+            case "RCONTROL": return 157;
+            case "RSHIFT": return 54;
+            case "RBRACKET": return 27;
+            case "SEMICOLON": return 39;
+            case "SLASH": return 53;
+            case "SPACE": return 57;
+            case "TAB": return 15;
+            case "GRAVE": return 41;
+            default: return -1;
+        }
     }
 }
