@@ -1,12 +1,10 @@
 package keystrokesmod.module.impl.movement;
 
-import keystrokesmod.event.PostPlayerInputEvent;
 import keystrokesmod.event.PreMotionEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityPlayerSP;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
-import keystrokesmod.module.impl.combat.KillAura;
 import keystrokesmod.module.impl.player.Safewalk;
 import keystrokesmod.module.impl.render.HUD;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -69,13 +67,6 @@ public class Sprint extends Module {
     }
 
     @SubscribeEvent
-    public void onPostPlayerInput(PostPlayerInputEvent e) {
-        if (Utils.jumpDown() && mc.thePlayer.onGround) {
-            requireJump = true;
-        }
-    }
-
-    @SubscribeEvent
     public void onPreMotion(PreMotionEvent e) {
 
         if (ModuleUtils.groundTicks <= 8 || floatConditions()) {
@@ -90,12 +81,8 @@ public class Sprint extends Module {
 
         if (canFloat && floatConditions() && !requireJump && omniSprint()) {
             e.setPosY(e.getPosY() + ModuleUtils.offsetValue);
-            sprintFloat = true;
             ModuleUtils.groundTicks = 0;
             if (Utils.isMoving()) Utils.setSpeed(getFloatSpeed(getSpeedLevel()));
-        }
-        else {
-            sprintFloat = false;
         }
 
         if (rotationConditions()) {
@@ -105,7 +92,7 @@ public class Sprint extends Module {
         }
     }
 
-    boolean floatConditions() {
+    private boolean floatConditions() {
         int edgeY = (int) Math.round((mc.thePlayer.posY % 1.0D) * 100.0D);
         if (ModuleUtils.stillTicks > 200) {
             requireJump = true;
@@ -169,7 +156,7 @@ public class Sprint extends Module {
         if (Utils.jumpDown()) {
             return false;
         }
-        if (KillAura.attackingEntity != null) {
+        if (ModuleManager.killAura.isTargeting) {
             return false;
         }
         if (Safewalk.canSafeWalk()) {
@@ -202,7 +189,7 @@ public class Sprint extends Module {
         if ((limit <= -limitVal || limit >= limitVal)) {
             return true;
         }
-        if (omniSprint() && ModuleManager.killAura.rotating && mc.thePlayer.moveForward <= 0.5) {
+        if (omniSprint() && ModuleManager.killAura.isTargeting && mc.thePlayer.moveForward <= 0.5) {
             return true;
         }
         return false;
@@ -287,7 +274,7 @@ public class Sprint extends Module {
     }
 
     private boolean exceptions() {
-        return ModuleManager.scaffold.isEnabled || mc.thePlayer.hurtTime > 0;
+        return ModuleManager.scaffold.isEnabled || mc.thePlayer.hurtTime > 0 || !mc.thePlayer.onGround;
     }
 
     static class EditScreen extends GuiScreen {
